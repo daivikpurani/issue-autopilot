@@ -1,0 +1,13 @@
+{
+  "issue_data": {
+    "title": "Fix authentication bug in login system",
+    "body": "Users are experiencing issues with the login system. The authentication is failing for some users and they cannot access their accounts. This seems to be related to the recent changes in the authentication middleware.\n\n**Steps to reproduce:**\n1. Go to the login page\n2. Enter valid credentials\n3. Click login\n4. Get redirected to error page\n\n**Expected behavior:**\nUsers should be able to log in successfully\n\n**Actual behavior:**\nAuthentication fails and users see an error message",
+    "user": {
+      "login": "testuser",
+      "id": 12345,
+      "avatar_url": "https://avatars.githubusercontent.com/u/12345?v=4",
+      "type": "User"
+    }
+  },
+  "auto_apply": false
+} 

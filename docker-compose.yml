@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  github-issue-ai:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GITHUB_ACCESS_TOKEN=${GITHUB_ACCESS_TOKEN}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT}
+      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME}
+      - DEFAULT_REPO_OWNER=${DEFAULT_REPO_OWNER}
+      - DEFAULT_REPO_NAME=${DEFAULT_REPO_NAME}
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8000
+      - DEBUG=False
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Add Redis for caching if needed
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   restart: unless-stopped
+
+volumes:
+  redis_data: 
