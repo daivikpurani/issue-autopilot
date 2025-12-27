@@ -70,7 +70,7 @@ async def process_issue(request: ProcessIssueRequest):
     """Process a single issue with AI analysis."""
     try:
         issue_data = request.issue_data.dict()
-        result = processor.process_new_issue(issue_data, request.auto_apply)
+        result = await processor.process_new_issue(issue_data, request.auto_apply)
         return ProcessResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -84,7 +84,7 @@ async def process_existing_issue(
 ):
     """Process an existing issue by its number."""
     try:
-        result = processor.process_existing_issue(issue_number, auto_apply)
+        result = await processor.process_existing_issue(issue_number, auto_apply)
         return ProcessResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -96,7 +96,7 @@ async def get_recommendations(request: ProcessIssueRequest):
     """Get AI recommendations for an issue without applying them."""
     try:
         issue_data = request.issue_data.dict()
-        result = processor.get_issue_recommendations(issue_data)
+        result = await processor.get_issue_recommendations(issue_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -107,7 +107,7 @@ async def get_recommendations(request: ProcessIssueRequest):
 async def batch_process_issues(request: BatchProcessRequest):
     """Process multiple issues in batch."""
     try:
-        result = processor.batch_process_issues(request.issue_numbers, request.auto_apply)
+        result = await processor.batch_process_issues(request.issue_numbers, request.auto_apply)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
