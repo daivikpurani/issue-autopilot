@@ -1,3 +1,4 @@
+import logging
 from typing import List, Dict, Any, Optional
 import pinecone
 from config import settings
@@ -9,9 +10,12 @@ class VectorService:
     def __init__(self):
         self.index = None
         self.initialized = False
+        self.logger = logging.getLogger(__name__)
         
         if settings.pinecone_api_key and settings.pinecone_environment:
             self._initialize_pinecone()
+        else:
+            self.logger.info("Pinecone not configured - vector service disabled")
     
     def _initialize_pinecone(self):
         """Initialize Pinecone client and index."""
@@ -28,14 +32,16 @@ class VectorService:
                     dimension=1536,  # OpenAI embedding dimension
                     metric="cosine"
                 )
+                self.logger.info(f"Created Pinecone index: {settings.pinecone_index_name}")
             
             self.index = pinecone.Index(settings.pinecone_index_name)
             self.initialized = True
+            self.logger.info("Pinecone vector service initialized successfully")
         except Exception as e:
-            print(f"Failed to initialize Pinecone: {e}")
+            self.logger.error(f"Failed to initialize Pinecone: {e}")
             self.initialized = False
     
-    def store_issue_context(self, issue_id: str, issue_data: Dict[str, Any], embeddings: List[float]) -> bool:
+    async def store_issue_context(self, issue_id: str, issue_data: Dict[str, Any], embeddings: List[float]) -> bool:
         """Store issue context in vector database."""
         if not self.initialized or not self.index:
             return False
@@ -52,12 +58,13 @@ class VectorService:
             self.index.upsert(
                 vectors=[(issue_id, embeddings, metadata)]
             )
+            self.logger.info(f"Stored issue context for issue #{issue_id}")
             return True
         except Exception as e:
-            print(f"Failed to store issue context: {e}")
+            self.logger.error(f"Failed to store issue context: {e}")
             return False
     
-    def store_repository_context(self, repo_name: str, file_path: str, content: str, embeddings: List[float]) -> bool:
+    async def store_repository_context(self, repo_name: str, file_path: str, content: str, embeddings: List[float]) -> bool:
         """Store repository file context in vector database."""
         if not self.initialized or not self.index:
             return False
@@ -74,12 +81,13 @@ class VectorService:
             self.index.upsert(
                 vectors=[(vector_id, embeddings, metadata)]
             )
+            self.logger.info(f"Stored repository context for {file_path}")
             return True
         except Exception as e:
-            print(f"Failed to store repository context: {e}")
+            self.logger.error(f"Failed to store repository context: {e}")
             return False
     
-    def search_similar_issues(self, query_embeddings: List[float], top_k: int = 5) -> List[Dict[str, Any]]:
+    async def search_similar_issues(self, query_embeddings: List[float], top_k: int = 5) -> List[Dict[str, Any]]:
         """Search for similar issues based on embeddings."""
         if not self.initialized or not self.index:
             return []
@@ -92,7 +100,7 @@ class VectorService:
                 include_metadata=True
             )
             
-            return [
+            similar_issues = [
                 {
                     "issue_id": match.metadata.get("issue_id"),
                     "title": match.metadata.get("title"),
@@ -102,11 +110,15 @@ class VectorService:
                 }
                 for match in results.matches
             ]
+            
+            self.logger.info(f"Found {len(similar_issues)} similar issues")
+            return similar_issues
+            
         except Exception as e:
-            print(f"Failed to search similar issues: {e}")
+            self.logger.error(f"Failed to search similar issues: {e}")
             return []
     
-    def search_repository_context(self, query_embeddings: List[float], top_k: int = 3) -> List[Dict[str, Any]]:
+    async def search_repository_context(self, query_embeddings: List[float], top_k: int = 3) -> List[Dict[str, Any]]:
         """Search for relevant repository context based on embeddings."""
         if not self.initialized or not self.index:
             return []
@@ -119,7 +131,7 @@ class VectorService:
                 include_metadata=True
             )
             
-            return [
+            context_results = [
                 {
                     "file_path": match.metadata.get("file_path"),
                     "content": match.metadata.get("content"),
@@ -128,11 +140,15 @@ class VectorService:
                 }
                 for match in results.matches
             ]
+            
+            self.logger.info(f"Found {len(context_results)} relevant repository files")
+            return context_results
+            
         except Exception as e:
-            print(f"Failed to search repository context: {e}")
+            self.logger.error(f"Failed to search repository context: {e}")
             return []
     
-    def get_issue_history_context(self, issue_id: str) -> List[Dict[str, Any]]:
+    async def get_issue_history_context(self, issue_id: str) -> List[Dict[str, Any]]:
         """Get historical context for an issue."""
         if not self.initialized or not self.index:
             return []
@@ -157,11 +173,22 @@ class VectorService:
                         "score": match.score
                     })
             
+            self.logger.info(f"Found {len(similar_issues[:10])} historical context issues")
             return similar_issues[:10]  # Return top 10 similar issues
+            
         except Exception as e:
-            print(f"Failed to get issue history context: {e}")
+            self.logger.error(f"Failed to get issue history context: {e}")
             return []
     
     def is_available(self) -> bool:
         """Check if vector service is available."""
-        return self.initialized and self.index is not None 
+        return self.initialized and self.index is not None
+    
+    def get_service_status(self) -> Dict[str, Any]:
+        """Get vector service status information."""
+        return {
+            "available": self.is_available(),
+            "initialized": self.initialized,
+            "index_name": settings.pinecone_index_name if self.initialized else None,
+            "service_type": "pinecone"
+        } 

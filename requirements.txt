@@ -1,12 +1,8 @@
 anthropic==0.7.8
-langchain==0.1.0
-langchain-anthropic==0.0.5
-langchain-community==0.0.10
-pinecone-client==2.2.4
 fastapi==0.104.1
 uvicorn==0.24.0
 python-dotenv==1.0.0
-pydantic==2.5.0
+pydantic>=1.9.0,<3.0.0
 httpx==0.25.2
 PyGithub==1.59.1
 python-multipart==0.0.6

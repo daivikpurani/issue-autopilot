@@ -21,7 +21,7 @@ class WebhookHandler:
         """Handle incoming GitHub webhook."""
         try:
             # Verify webhook signature
-            if not self._verify_signature(request):
+            if not await self._verify_signature(request):
                 raise HTTPException(status_code=401, detail="Invalid signature")
             
             # Get webhook payload
@@ -31,16 +31,16 @@ class WebhookHandler:
             if x_github_event == "issues":
                 return await self._handle_issues_webhook(payload)
             elif x_github_event == "ping":
-                return JSONResponse(content={"message": "Webhook received"}, status_code=200)
+                return JSONResponse(content={"message": "Webhook received", "status": "pong"}, status_code=200)
             else:
                 self.logger.info(f"Unhandled webhook event: {x_github_event}")
-                return JSONResponse(content={"message": "Event ignored"}, status_code=200)
+                return JSONResponse(content={"message": "Event ignored", "event": x_github_event}, status_code=200)
                 
         except Exception as e:
             self.logger.error(f"Error handling webhook: {e}")
             raise HTTPException(status_code=500, detail=str(e))
     
-    def _verify_signature(self, request: Request) -> bool:
+    async def _verify_signature(self, request: Request) -> bool:
         """Verify GitHub webhook signature."""
         try:
             # Get the signature from headers
@@ -50,7 +50,7 @@ class WebhookHandler:
                 return False
             
             # Get the raw body
-            body = request.body()
+            body = await request.body()
             
             # Calculate expected signature
             expected_signature = "sha256=" + hmac.new(
@@ -74,23 +74,36 @@ class WebhookHandler:
         
         # Only process new issues
         if action == "opened":
-            # Process the new issue
-            result = self.processor.process_new_issue(issue_data, auto_apply=False)
-            
-            if result.get("success"):
+            try:
+                # Process the new issue
+                result = await self.processor.process_new_issue(issue_data, auto_apply=False)
+                
+                if result.get("success"):
+                    return JSONResponse(
+                        content={
+                            "message": "Issue processed successfully",
+                            "issue_number": result.get("issue_number"),
+                            "analysis": result.get("analysis"),
+                            "agent_action": "analysis_completed"
+                        },
+                        status_code=200
+                    )
+                else:
+                    return JSONResponse(
+                        content={
+                            "message": "Failed to process issue",
+                            "error": result.get("error"),
+                            "agent_action": "analysis_failed"
+                        },
+                        status_code=500
+                    )
+            except Exception as e:
+                self.logger.error(f"Error processing issue: {e}")
                 return JSONResponse(
                     content={
-                        "message": "Issue processed successfully",
-                        "issue_number": result.get("issue_number"),
-                        "analysis": result.get("analysis")
-                    },
-                    status_code=200
-                )
-            else:
-                return JSONResponse(
-                    content={
-                        "message": "Failed to process issue",
-                        "error": result.get("error")
+                        "message": "Error processing issue",
+                        "error": str(e),
+                        "agent_action": "error"
                     },
                     status_code=500
                 )
@@ -98,13 +111,16 @@ class WebhookHandler:
             # Log other actions but don't process them
             self.logger.info(f"Ignoring issue action: {action}")
             return JSONResponse(
-                content={"message": f"Issue action '{action}' ignored"},
+                content={
+                    "message": f"Issue action '{action}' ignored",
+                    "agent_action": "ignored"
+                },
                 status_code=200
             )
     
     def get_webhook_url(self) -> str:
         """Get the webhook URL for GitHub configuration."""
-        return f"http://{settings.app_host}:{settings.app_port}/webhook"
+        return f"http://{settings.app_host}:{settings.app_port}/api/v1/webhook"
     
     def get_webhook_secret(self) -> str:
         """Get the webhook secret for GitHub configuration."""
